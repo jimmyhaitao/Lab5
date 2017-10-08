@@ -53,6 +53,13 @@ public class MorseDecoder {
 
         double[] sampleBuffer = new double[BIN_SIZE * inputFile.getNumChannels()];
         for (int binIndex = 0; binIndex < totalBinCount; binIndex++) {
+            double numF = inputFile.readFrames(sampleBuffer, BIN_SIZE);
+            double sum = 0;
+            for (int i = 0; i < numF; i++) {
+                sum += Math.abs(sampleBuffer[i]);
+            }
+            returnBuffer[binIndex] = sum;
+
             // Get the right number of samples from the inputFile
             // Sum all the samples together and store them in the returnBuffer
         }
@@ -63,7 +70,7 @@ public class MorseDecoder {
     private static final double POWER_THRESHOLD = 10;
 
     /** Bin threshold for dots or dashes. Related to BIN_SIZE. You may need to modify this value. */
-    private static final int DASH_BIN_COUNT = 8;
+    private static final int DASH_BIN_COUNT = 10;
 
     /**
      * Convert power measurements to dots, dashes, and spaces.
@@ -81,13 +88,43 @@ public class MorseDecoder {
          * There are four conditions to handle. Symbols should only be output when you see
          * transitions. You will also have to store how much power or silence you have seen.
          */
-
+        String returnString = "";
+        int powerLength = 0;
+        boolean wasTone = false;
+        for (double currentmeasure: powerMeasurements) {
+            boolean isPower = false;
+            if (Math.abs(currentmeasure) > POWER_THRESHOLD) {
+                isPower = true;
+            }
+            if (isPower) {
+                if (wasTone) {
+                    powerLength++;
+                } else {
+                    if (powerLength >= DASH_BIN_COUNT) {
+                        returnString += " ";
+                    }
+                    powerLength = 1;
+                    wasTone = true;
+                }
+            } else {
+                if (wasTone) {
+                    if (powerLength >= DASH_BIN_COUNT) {
+                        returnString += "-";
+                    } else {
+                        returnString += ".";
+                    }
+                    powerLength = 1;
+                    wasTone = false;
+                } else {
+                    powerLength++;
+                }
+            }
+        }
+        return returnString;
         // if ispower and waspower
         // else if ispower and not waspower
         // else if issilence and wassilence
         // else if issilence and not wassilence
-
-        return "";
     }
 
     /**
@@ -137,7 +174,6 @@ public class MorseDecoder {
                     put(".-.-.-", ".");
                 }
             };
-
     /**
      * Convert a Morse code string to alphanumeric characters using the mapping above.
      * <p>
